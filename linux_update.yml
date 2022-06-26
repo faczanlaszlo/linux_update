@@ -1,0 +1,44 @@
+---
+- name: teszt
+  serial: 1
+  hosts: webservers
+
+  pre_tasks:
+    - name: Get Kernel version
+      shell: "uname -a"
+      register: preversion
+
+  post_tasks:
+    - name: Get New Kernel version
+      shell: "uname -a"
+      register: postversion
+    
+    - name: Print old kernel version
+      debug:
+        var: preversion.stdout 
+    - name: Print new kernel version
+      debug:
+        var: postversion.stdout
+
+  tasks:
+    - name: update all packages
+      yum: 
+        name: "*"
+        state: latest
+
+    - name: Check reboot
+      shell: yum needs-restarting -r
+      register: reboot
+      ignore_errors: yes
+
+    - name: Reboot
+      reboot:
+        reboot_timeout: 300
+      when: reboot.rc == 1
+
+    - name: Check website
+      become: false
+      uri:
+        url: "http://{{ ansible_hostname }}"
+        status_code: 200
+      delegate_to: localhost
